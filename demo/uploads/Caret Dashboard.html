@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caret — AI Copilot for Geriatric Care</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --cream: oklch(97% 0.012 70);
+    --cream-mid: oklch(94% 0.015 70);
+    --cream-border: oklch(88% 0.018 70);
+    --sidebar-bg: oklch(22% 0.025 60);
+    --sidebar-hover: oklch(28% 0.025 60);
+    --sidebar-active: oklch(32% 0.025 60);
+    --text-primary: oklch(18% 0.02 60);
+    --text-secondary: oklch(48% 0.02 60);
+    --text-muted: oklch(62% 0.015 60);
+    --sage: oklch(58% 0.1 150);
+    --sage-light: oklch(94% 0.05 150);
+    --sage-mid: oklch(88% 0.07 150);
+    --amber: oklch(68% 0.13 55);
+    --amber-light: oklch(96% 0.05 70);
+    --amber-mid: oklch(90% 0.07 65);
+    --rose: oklch(62% 0.12 15);
+    --rose-light: oklch(96% 0.04 15);
+    --sidebar-text: oklch(82% 0.015 70);
+    --sidebar-muted: oklch(52% 0.015 70);
+    --font-display: 'DM Serif Display', serif;
+    --font-body: 'DM Sans', sans-serif;
+  }
+  html, body, #root { height: 100%; width: 100%; overflow: hidden; }
+  body { font-family: var(--font-body); background: var(--cream); color: var(--text-primary); }
+  * { -webkit-font-smoothing: antialiased; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--cream-border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(78% 0.018 70); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ─── DATA ────────────────────────────────────────────────────────────────────
+
+const CASES = [
+  { id: 1, name: "Margaret Holloway", age: 84, flag: "urgent", status: "Active", lastTouch: "Today", preview: "Recent fall, family conflict over housing", initials: "MH" },
+  { id: 2, name: "Robert Eisenstein", age: 78, flag: "stable", status: "Active", lastTouch: "Yesterday", preview: "Post-discharge follow-up, PT coordination", initials: "RE" },
+  { id: 3, name: "Dorothy Nguyen", age: 91, flag: "attention", status: "Active", lastTouch: "3 days ago", preview: "Dementia progression, caregiver burnout concern", initials: "DN" },
+  { id: 4, name: "Harold Simmons", age: 73, flag: "stable", status: "Active", lastTouch: "1 week ago", preview: "Medication review, financial planning", initials: "HS" },
+  { id: 5, name: "Evelyn Carter", age: 88, flag: "stable", status: "Active", lastTouch: "2 weeks ago", preview: "Home safety assessment completed", initials: "EC" },
+];
+
+const INTAKE_NOTES = `Called by daughter Susan (lives in Boston). Mom is Margaret, 84F, lives alone in Wilmette. Susan says there was a fall last Tuesday - mom didn't tell anyone for 2 days. No ER visit. Mom says she "tripped on the rug." Susan is worried about her living situation but mom is refusing to consider moving. 
+
+Margaret has hx of: osteoporosis, HTN, mild cognitive impairment (diagnosed 2 yrs ago), and macular degeneration. Current meds: amlodipine 5mg, donepezil 10mg, calcium + D, aspirin 81mg. Not sure if she's taking them consistently - found several pills on counter.
+
+Home visit yesterday: clutter in hallway, loose rug by front door (the fall hazard), bathroom no grab bars, lighting poor in bedroom. Margaret was pleasant but seemed confused about the day of the week. Fridge had expired food. Neighbor checks in occasionally.
+
+Family: Susan (daughter, Boston), Tom (son, local but "busy"), estranged from sister Carol. Susan wants more help but Tom thinks "she's fine." This is creating tension. No POA in place yet.
+
+Margaret has Medicare + supplement. No LTC insurance. Finances seem okay per Susan but haven't confirmed. She resists any paid help - "I'm not an invalid."`;
+
+const GENERATED = {
+  summary: {
+    livingSituation: "Lives alone in a single-family home in Wilmette, IL. Mild cognitive impairment (dx 2 yrs ago), osteoporosis, HTN, macular degeneration. Fall occurred last Tuesday — delayed disclosure by 2 days.",
+    functionalLimits: "Likely declining ADL independence. Poor medication adherence observed. Possible visual impairment affecting safety. Cognitive confusion noted during home visit (day/date disorientation).",
+    familyDynamics: "Daughter Susan (Boston, engaged) vs. son Tom (local, minimizing). No power of attorney in place. Client is resistant to care interventions. Potential for family conflict to impede care.",
+    immediateRisks: ["Unsecured fall hazard (loose rug, no grab bars)", "Medication non-adherence", "Food safety concern (expired items)", "Undisclosed injury — severity unknown", "No legal/financial POA"],
+    openQuestions: ["Was Margaret medically evaluated after the fall?", "Confirm medication list with prescribing physicians", "Assess cognitive status formally (MoCA/MMSE)", "Establish POA with attorney referral", "Determine actual financial picture"],
+  },
+  carePlan: [
+    { goal: "Immediate home safety remediation", interventions: ["Remove loose rug from entryway immediately", "Install grab bars in bathroom (OT referral)", "Improve bedroom lighting"], timeframe: "1–2 weeks", source: "Home visit observation — fall hazard noted at front door rug" },
+    { goal: "Medical evaluation of fall", interventions: ["Coordinate physician visit to rule out injury", "Request bone density update given osteoporosis hx", "Evaluate for orthostatic hypotension (amlodipine)"], timeframe: "This week", source: "Susan reported fall on Tuesday; no medical follow-up confirmed" },
+    { goal: "Medication management", interventions: ["Introduce pill organizer or automated dispenser", "Request pharmacist medication review", "Set up weekly check-in system with aide or family"], timeframe: "2 weeks", source: "Loose pills observed on counter during home visit" },
+    { goal: "Cognitive assessment & care planning", interventions: ["Administer MoCA or coordinate neuropsych referral", "Begin documenting baseline function longitudinally", "Explore memory care day program for socialization"], timeframe: "3–4 weeks", source: "Mild cognitive impairment dx, confusion during visit re: day of week" },
+    { goal: "Legal & financial safeguards", interventions: ["Refer to elder law attorney for POA/healthcare proxy", "Confirm insurance coverage and benefits", "Assess for LTC planning needs"], timeframe: "4–6 weeks", source: "No POA in place per Susan; finances unconfirmed" },
+    { goal: "Family alignment & communication", interventions: ["Facilitate family call with Susan and Tom", "Frame conversation around Margaret's stated goals", "Establish regular update cadence for both children"], timeframe: "Ongoing", source: "Susan vs. Tom conflict noted; differing views on care needs" },
+  ],
+  tasks: [
+    { id: 1, text: "Schedule physician follow-up for fall evaluation", owner: "Care Manager", due: "Apr 21", priority: "urgent", done: false, source: "Fall occurred Tue; no MD visit confirmed" },
+    { id: 2, text: "Contact OT for home safety assessment + grab bar installation", owner: "Care Manager", due: "Apr 22", priority: "urgent", done: false, source: "No grab bars in bathroom; loose rug fall hazard" },
+    { id: 3, text: "Facilitate family call: Susan + Tom", owner: "Care Manager", due: "Apr 23", priority: "high", done: false, source: "Family conflict noted; Tom minimizing, Susan alarmed" },
+    { id: 4, text: "Obtain medication list from prescribing MDs", owner: "Care Manager", due: "Apr 25", priority: "high", done: false, source: "Med list from Susan only; adherence uncertain" },
+    { id: 5, text: "Refer to elder law attorney for POA", owner: "Care Manager + Family", due: "Apr 30", priority: "medium", done: false, source: "No POA in place per Susan" },
+    { id: 6, text: "Administer cognitive screening (MoCA)", owner: "Care Manager", due: "May 2", priority: "medium", done: false, source: "MCI dx 2 yrs ago; confusion noted during visit" },
+    { id: 7, text: "Confirm Medicare supplement coverage details", owner: "Care Manager", due: "May 5", priority: "low", done: false, source: "Medicare + supplement noted; no LTC insurance" },
+  ]
+};
+
+// ─── TWEAKS ──────────────────────────────────────────────────────────────────
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "warm",
+  "sidebarStyle": "rich",
+  "animationSpeed": "normal"
+}/*EDITMODE-END*/;
+
+// ─── COMPONENTS ──────────────────────────────────────────────────────────────
+
+function Logo() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '24px 20px 20px' }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: 8,
+        background: 'var(--sage)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        flexShrink: 0,
+      }}>
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <path d="M9 2L16 14H2L9 2Z" fill="white" fillOpacity="0.9"/>
+          <rect x="8" y="9" width="2" height="4" rx="1" fill="var(--sage)" opacity="0.6"/>
+        </svg>
+      </div>
+      <span style={{ fontFamily: 'var(--font-display)', fontSize: 22, color: 'oklch(92% 0.015 70)', letterSpacing: '-0.01em' }}>Caret</span>
+    </div>
+  );
+}
+
+function FlagDot({ flag }) {
+  const colors = { urgent: 'var(--rose)', attention: 'var(--amber)', stable: 'var(--sage)' };
+  return <div style={{ width: 7, height: 7, borderRadius: '50%', background: colors[flag] || colors.stable, flexShrink: 0 }} />;
+}
+
+function CaseRow({ c, active, onClick }) {
+  return (
+    <div onClick={onClick} style={{
+      padding: '10px 16px 10px 20px',
+      cursor: 'pointer',
+      background: active ? 'var(--sidebar-active)' : 'transparent',
+      borderLeft: active ? '3px solid var(--sage)' : '3px solid transparent',
+      transition: 'background 0.15s',
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}
+    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--sidebar-hover)'; }}
+    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
+    >
+      <div style={{
+        width: 34, height: 34, borderRadius: '50%', flexShrink: 0,
+        background: active ? 'var(--sage)' : 'oklch(35% 0.025 60)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 11, fontWeight: 600, color: active ? 'white' : 'var(--sidebar-muted)',
+        letterSpacing: '0.02em',
+        transition: 'background 0.15s',
+      }}>
+        {c.initials}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+          <span style={{ fontSize: 13.5, fontWeight: 500, color: 'var(--sidebar-text)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</span>
+          <FlagDot flag={c.flag} />
+        </div>
+        <div style={{ fontSize: 11.5, color: 'var(--sidebar-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.preview}</div>
+      </div>
+    </div>
+  );
+}
+
+function Sidebar({ activeCase, setActiveCase, setStep }) {
+  return (
+    <div style={{
+      width: 240, flexShrink: 0,
+      background: 'var(--sidebar-bg)',
+      height: '100%', display: 'flex', flexDirection: 'column',
+      borderRight: '1px solid oklch(30% 0.02 60)',
+    }}>
+      <Logo />
+      <div style={{ padding: '4px 20px 12px', fontSize: 11, fontWeight: 600, color: 'var(--sidebar-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+        Active Cases
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        {CASES.map(c => (
+          <CaseRow key={c.id} c={c} active={activeCase?.id === c.id}
+            onClick={() => { setActiveCase(c); if (c.id !== 1) setStep('intake'); }}
+          />
+        ))}
+      </div>
+      <div style={{ padding: '16px 20px', borderTop: '1px solid oklch(30% 0.02 60)' }}>
+        <div style={{ fontSize: 12, color: 'var(--sidebar-muted)' }}>Sarah Chen, GCM</div>
+        <div style={{ fontSize: 11, color: 'oklch(42% 0.015 70)', marginTop: 2 }}>sarah@caringforward.com</div>
+      </div>
+    </div>
+  );
+}
+
+// Streaming text effect
+function StreamText({ text, speed, active }) {
+  const [displayed, setDisplayed] = useState('');
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (!active) { setDisplayed(''); setDone(false); return; }
+    setDisplayed('');
+    setDone(false);
+    let i = 0;
+    const delay = speed === 'fast' ? 6 : speed === 'slow' ? 18 : 10;
+    const interval = setInterval(() => {
+      i += Math.floor(Math.random() * 4) + 2;
+      if (i >= text.length) { setDisplayed(text); setDone(true); clearInterval(interval); return; }
+      setDisplayed(text.slice(0, i));
+    }, delay);
+    return () => clearInterval(interval);
+  }, [active, text, speed]);
+  return <span>{displayed}{!done && active && <span style={{ opacity: 0.4, animation: 'blink 0.6s step-end infinite' }}>|</span>}</span>;
+}
+
+function CitationChip({ text }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span style={{ position: 'relative', display: 'inline-block' }}>
+      <span onClick={() => setShow(s => !s)} style={{
+        fontSize: 10, fontWeight: 600, background: 'var(--sage-mid)',
+        color: 'oklch(38% 0.1 150)', borderRadius: 4, padding: '1px 6px',
+        cursor: 'pointer', marginLeft: 6, verticalAlign: 'middle',
+        border: '1px solid var(--sage)',
+        userSelect: 'none',
+      }}>source</span>
+      {show && (
+        <div onClick={() => setShow(false)} style={{
+          position: 'absolute', bottom: 'calc(100% + 6px)', left: 0,
+          background: 'var(--sidebar-bg)', color: 'oklch(82% 0.015 70)',
+          fontSize: 11.5, lineHeight: 1.5, borderRadius: 8,
+          padding: '10px 12px', width: 240,
+          boxShadow: '0 8px 24px oklch(0% 0 0 / 30%)',
+          zIndex: 100, border: '1px solid oklch(35% 0.02 60)',
+        }}>
+          <div style={{ fontSize: 9.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--sidebar-muted)', marginBottom: 4 }}>From intake notes</div>
+          "{text}"
+        </div>
+      )}
+    </span>
+  );
+}
+
+function SummaryPanel({ animating, speed }) {
+  const s = GENERATED.summary;
+  const delay = speed === 'fast' ? 0 : speed === 'slow' ? 2500 : 1200;
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (!animating) { setShow(false); return; }
+    const t = setTimeout(() => setShow(true), 200);
+    return () => clearTimeout(t);
+  }, [animating]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <SummaryField label="Living Situation & Status" color="var(--amber)" delay={0} show={show} speed={speed}>
+        <StreamText text={s.livingSituation} active={show} speed={speed} />
+      </SummaryField>
+      <SummaryField label="Functional Concerns" color="var(--amber)" delay={delay * 0.5} show={show} speed={speed}>
+        <StreamText text={s.functionalLimits} active={show} speed={speed} />
+      </SummaryField>
+      <SummaryField label="Family Dynamics" color="var(--sage)" delay={delay * 1} show={show} speed={speed}>
+        <StreamText text={s.familyDynamics} active={show} speed={speed} />
+      </SummaryField>
+      <SummaryField label="Immediate Risks" color="var(--rose)" delay={delay * 1.5} show={show} speed={speed}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {s.immediateRisks.map((r, i) => (
+            <span key={i} style={{ fontSize: 12, background: 'var(--rose-light)', color: 'var(--rose)', borderRadius: 6, padding: '3px 10px', border: '1px solid oklch(90% 0.06 15)' }}>{r}</span>
+          ))}
+        </div>
+      </SummaryField>
+      <SummaryField label="Open Questions" color="var(--text-muted)" delay={delay * 2} show={show} speed={speed}>
+        <ul style={{ paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {s.openQuestions.map((q, i) => (
+            <li key={i} style={{ fontSize: 13, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{q}</li>
+          ))}
+        </ul>
+      </SummaryField>
+    </div>
+  );
+}
+
+function SummaryField({ label, color, children, delay, show, speed }) {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    if (!show) { setVisible(false); return; }
+    const t = setTimeout(() => setVisible(true), delay);
+    return () => clearTimeout(t);
+  }, [show, delay]);
+  return (
+    <div style={{
+      opacity: visible ? 1 : 0,
+      transform: visible ? 'translateY(0)' : 'translateY(8px)',
+      transition: 'opacity 0.4s ease, transform 0.4s ease',
+    }}>
+      <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--text-secondary)' }}>{children}</div>
+    </div>
+  );
+}
+
+function CarePlanPanel({ animating, speed }) {
+  const baseDelay = speed === 'fast' ? 200 : speed === 'slow' ? 4000 : 1800;
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!animating) { setVisibleCount(0); setShow(false); return; }
+    const t = setTimeout(() => setShow(true), 400);
+    return () => clearTimeout(t);
+  }, [animating]);
+
+  useEffect(() => {
+    if (!show) { setVisibleCount(0); return; }
+    const gap = speed === 'fast' ? 300 : speed === 'slow' ? 900 : 500;
+    GENERATED.carePlan.forEach((_, i) => {
+      setTimeout(() => setVisibleCount(c => Math.max(c, i + 1)), gap * i);
+    });
+  }, [show, speed]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {GENERATED.carePlan.map((item, i) => (
+        <div key={i} style={{
+          opacity: i < visibleCount ? 1 : 0,
+          transform: i < visibleCount ? 'translateY(0)' : 'translateY(10px)',
+          transition: 'opacity 0.45s ease, transform 0.45s ease',
+          background: 'white',
+          border: '1px solid var(--cream-border)',
+          borderRadius: 10,
+          padding: '14px 16px',
+          borderLeft: '3px solid var(--sage)',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 8 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
+              {item.goal}
+              <CitationChip text={item.source} />
+            </div>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', background: 'var(--cream-mid)', borderRadius: 5, padding: '2px 8px', marginLeft: 10, whiteSpace: 'nowrap', flexShrink: 0 }}>
+              {item.timeframe}
+            </span>
+          </div>
+          <ul style={{ paddingLeft: 16, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {item.interventions.map((iv, j) => (
+              <li key={j} style={{ fontSize: 12.5, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{iv}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TasksPanel({ animating, speed, tasks, setTasks }) {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    if (!animating) { setVisibleCount(0); setShow(false); return; }
+    const t = setTimeout(() => setShow(true), 600);
+    return () => clearTimeout(t);
+  }, [animating]);
+
+  useEffect(() => {
+    if (!show) { setVisibleCount(0); return; }
+    const gap = speed === 'fast' ? 150 : speed === 'slow' ? 500 : 250;
+    tasks.forEach((_, i) => {
+      setTimeout(() => setVisibleCount(c => Math.max(c, i + 1)), gap * i);
+    });
+  }, [show, speed]);
+
+  const priorityColors = {
+    urgent: { bg: 'var(--rose-light)', text: 'var(--rose)', border: 'oklch(90% 0.06 15)' },
+    high: { bg: 'var(--amber-light)', text: 'var(--amber)', border: 'oklch(90% 0.06 65)' },
+    medium: { bg: 'var(--sage-light)', text: 'var(--sage)', border: 'var(--sage-mid)' },
+    low: { bg: 'var(--cream-mid)', text: 'var(--text-muted)', border: 'var(--cream-border)' },
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {tasks.map((task, i) => {
+        const pc = priorityColors[task.priority];
+        return (
+          <div key={task.id} style={{
+            opacity: i < visibleCount ? 1 : 0,
+            transform: i < visibleCount ? 'translateX(0)' : 'translateX(12px)',
+            transition: 'opacity 0.4s ease, transform 0.4s ease',
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            background: task.done ? 'transparent' : 'white',
+            border: `1px solid ${task.done ? 'var(--cream-border)' : 'var(--cream-border)'}`,
+            borderRadius: 9, padding: '11px 14px',
+          }}>
+            <button onClick={() => setTasks(prev => prev.map(t => t.id === task.id ? {...t, done: !t.done} : t))}
+              style={{
+                width: 20, height: 20, borderRadius: 6, border: `2px solid ${task.done ? 'var(--sage)' : 'var(--cream-border)'}`,
+                background: task.done ? 'var(--sage)' : 'white', cursor: 'pointer', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.2s', marginTop: 1,
+              }}>
+              {task.done && <svg width="10" height="10" viewBox="0 0 10 10"><path d="M1.5 5L4 7.5L8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            </button>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 13, color: task.done ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: task.done ? 'line-through' : 'none', lineHeight: 1.45, marginBottom: 4 }}>
+                {task.text}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, background: pc.bg, color: pc.text, border: `1px solid ${pc.border}`, borderRadius: 5, padding: '1px 7px', fontWeight: 600 }}>
+                  {task.priority}
+                </span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Due {task.due}</span>
+                <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{task.owner}</span>
+              </div>
+            </div>
+            <div onClick={() => {
+              const el = document.getElementById(`source-${task.id}`);
+              if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+            }} style={{ cursor: 'pointer', color: 'var(--sage)', fontSize: 11, fontWeight: 600, flexShrink: 0, padding: '2px 0', opacity: 0.7 }}>
+              ↗
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function TabBar({ tab, setTab, hasPlan }) {
+  const tabs = [
+    { id: 'summary', label: 'Case Summary' },
+    { id: 'careplan', label: 'Care Plan' },
+    { id: 'tasks', label: 'Tasks' },
+  ];
+  return (
+    <div style={{ display: 'flex', borderBottom: '2px solid var(--cream-border)', gap: 0 }}>
+      {tabs.map(t => (
+        <button key={t.id} onClick={() => hasPlan && setTab(t.id)} style={{
+          padding: '12px 20px',
+          fontSize: 13.5, fontWeight: tab === t.id ? 600 : 400,
+          color: tab === t.id ? 'var(--text-primary)' : hasPlan ? 'var(--text-muted)' : 'oklch(80% 0.012 70)',
+          background: 'none', border: 'none',
+          borderBottom: tab === t.id ? '2px solid var(--text-primary)' : '2px solid transparent',
+          marginBottom: '-2px', cursor: hasPlan ? 'pointer' : 'default',
+          transition: 'color 0.15s',
+        }}>{t.label}</button>
+      ))}
+    </div>
+  );
+}
+
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+
+function App() {
+  const savedCase = CASES.find(c => c.id === 1);
+  const [activeCase, setActiveCase] = useState(savedCase);
+  const [step, setStep] = useState(() => {
+    try { return localStorage.getItem('caret_step') || 'intake'; } catch { return 'intake'; }
+  });
+  const [notes, setNotes] = useState(INTAKE_NOTES);
+  const [isRecording, setIsRecording] = useState(false);
+  const [interim, setInterim] = useState('');
+  const [audioMode, setAudioMode] = useState(false);
+  const recognitionRef = useRef(null);
+  const committedRef = useRef(INTAKE_NOTES);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [hasPlan, setHasPlan] = useState(() => { try { return localStorage.getItem('caret_hasplan') === '1'; } catch { return false; } });
+  const [tab, setTab] = useState('summary');
+  const [tasks, setTasks] = useState(GENERATED.tasks);
+  const [tweaks, setTweaks] = useState(() => {
+    try { const s = localStorage.getItem('caret_tweaks'); return s ? JSON.parse(s) : TWEAK_DEFAULTS; } catch { return TWEAK_DEFAULTS; }
+  });
+  const [tweaksVisible, setTweaksVisible] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [progressLabel, setProgressLabel] = useState('');
+
+  useEffect(() => {
+    try { localStorage.setItem('caret_step', step); } catch {}
+  }, [step]);
+  useEffect(() => {
+    try { localStorage.setItem('caret_hasplan', hasPlan ? '1' : '0'); } catch {}
+  }, [hasPlan]);
+  useEffect(() => {
+    try { localStorage.setItem('caret_tweaks', JSON.stringify(tweaks)); } catch {}
+  }, [tweaks]);
+
+  // Tweaks listener
+  useEffect(() => {
+    window.addEventListener('message', e => {
+      if (e.data?.type === '__activate_edit_mode') setTweaksVisible(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweaksVisible(false);
+      if (e.data?.type === '__edit_mode_set_keys') setTweaks(t => ({...t, ...e.data.edits}));
+    });
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+  }, []);
+
+  // Speech recognition
+  const toggleRecording = useCallback(() => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert('Speech recognition is not supported in this browser. Try Chrome.'); return; }
+
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      setIsRecording(false);
+      setInterim('');
+      return;
+    }
+
+    const rec = new SR();
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.lang = 'en-US';
+    recognitionRef.current = rec;
+
+    rec.onstart = () => { setIsRecording(true); setAudioMode(true); };
+
+    rec.onresult = (e) => {
+      let finalChunk = '';
+      let interimChunk = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) finalChunk += t;
+        else interimChunk += t;
+      }
+      if (finalChunk) {
+        const separator = committedRef.current.length > 0 && !committedRef.current.endsWith('\n') ? ' ' : '';
+        committedRef.current = committedRef.current + separator + finalChunk;
+        setNotes(committedRef.current);
+      }
+      setInterim(interimChunk);
+    };
+
+    rec.onend = () => { setIsRecording(false); setInterim(''); };
+    rec.onerror = () => { setIsRecording(false); setInterim(''); };
+    rec.start();
+  }, [isRecording]);
+
+  const clearNotes = () => {
+    committedRef.current = '';
+    setNotes('');
+    setInterim('');
+    setAudioMode(false);
+  };
+
+  const speedMap = { slow: 'slow', normal: 'normal', fast: 'fast' };
+  const animSpeed = speedMap[tweaks.animationSpeed] || 'normal';
+
+  const generate = () => {
+    if (isGenerating) return;
+    setIsGenerating(true);
+    setProgress(0);
+    setHasPlan(false);
+    setTasks(GENERATED.tasks);
+
+    const stages = [
+      { pct: 15, label: 'Parsing intake notes…' },
+      { pct: 35, label: 'Extracting clinical context…' },
+      { pct: 55, label: 'Drafting care plan…' },
+      { pct: 75, label: 'Generating task list…' },
+      { pct: 90, label: 'Cross-referencing sources…' },
+      { pct: 100, label: 'Done' },
+    ];
+
+    const baseTime = animSpeed === 'fast' ? 200 : animSpeed === 'slow' ? 700 : 400;
+
+    stages.forEach((s, i) => {
+      setTimeout(() => {
+        setProgress(s.pct);
+        setProgressLabel(s.label);
+        if (i === stages.length - 1) {
+          setTimeout(() => { setIsGenerating(false); setHasPlan(true); setStep('plan'); setTab('summary'); }, baseTime);
+        }
+      }, baseTime * (i + 1));
+    });
+  };
+
+  const reset = () => {
+    setHasPlan(false);
+    setStep('intake');
+    setProgress(0);
+    setTasks(GENERATED.tasks);
+  };
+
+  // Theme variants
+  const themes = {
+    warm: { '--cream': 'oklch(97% 0.012 70)', '--cream-mid': 'oklch(94% 0.015 70)', '--cream-border': 'oklch(88% 0.018 70)', '--sidebar-bg': 'oklch(22% 0.025 60)', '--sage': 'oklch(58% 0.1 150)' },
+    cool: { '--cream': 'oklch(97% 0.01 230)', '--cream-mid': 'oklch(93% 0.015 230)', '--cream-border': 'oklch(87% 0.018 230)', '--sidebar-bg': 'oklch(20% 0.03 240)', '--sage': 'oklch(55% 0.12 220)' },
+    stone: { '--cream': 'oklch(96% 0.005 80)', '--cream-mid': 'oklch(92% 0.008 80)', '--cream-border': 'oklch(86% 0.01 80)', '--sidebar-bg': 'oklch(18% 0.01 80)', '--sage': 'oklch(55% 0.1 165)' },
+  };
+  const themeVars = themes[tweaks.theme] || themes.warm;
+
+  return (
+    <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', ...themeVars }}>
+      <style>{`
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes pulse { 0%,100%{opacity:0.6} 50%{opacity:1} }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes micPulse { 0%,100%{box-shadow:0 0 0 6px oklch(96% 0.04 15),0 4px 16px oklch(62% 0.12 15 / 35%)} 50%{box-shadow:0 0 0 10px oklch(96% 0.04 15),0 4px 20px oklch(62% 0.12 15 / 45%)} }
+        @keyframes audioBar0 { from{height:4px} to{height:16px} }
+        @keyframes audioBar1 { from{height:8px} to{height:20px} }
+        @keyframes audioBar2 { from{height:14px} to{height:6px} }
+        @keyframes audioBar3 { from{height:6px} to{height:18px} }
+        @keyframes audioBar4 { from{height:10px} to{height:4px} }
+        .gen-btn:hover { filter: brightness(1.06); transform: translateY(-1px) !important; }
+        .gen-btn:active { transform: translateY(0px) !important; }
+      `}</style>
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <Sidebar activeCase={activeCase} setActiveCase={setActiveCase} setStep={setStep} />
+        
+        {/* Main */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* Header */}
+          <div style={{ padding: '20px 28px 16px', borderBottom: '1px solid var(--cream-border)', background: 'white', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <h1 style={{ fontFamily: 'var(--font-body)', fontSize: 22, color: 'var(--text-primary)', fontWeight: 600, letterSpacing: '-0.02em' }}>
+                    {activeCase?.name}
+                  </h1>
+                  <span style={{ fontSize: 12, color: 'var(--text-muted)', background: 'var(--cream-mid)', borderRadius: 5, padding: '2px 8px' }}>
+                    {activeCase?.age}y
+                  </span>
+                  <FlagDot flag={activeCase?.flag} />
+                  {activeCase?.flag === 'urgent' && (
+                    <span style={{ fontSize: 11, color: 'var(--rose)', background: 'var(--rose-light)', borderRadius: 5, padding: '2px 8px', fontWeight: 600 }}>Urgent</span>
+                  )}
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 3 }}>Last updated {activeCase?.lastTouch} · {activeCase?.status}</div>
+              </div>
+              {hasPlan && (
+                <button onClick={reset} style={{ fontSize: 12.5, color: 'var(--text-muted)', background: 'var(--cream-mid)', border: '1px solid var(--cream-border)', borderRadius: 7, padding: '7px 14px', cursor: 'pointer' }}>
+                  Reset demo
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+            {/* Left: Input */}
+            <div style={{ width: 340, flexShrink: 0, borderRight: '1px solid var(--cream-border)', display: 'flex', flexDirection: 'column', background: 'white' }}>
+              {/* Panel header */}
+              <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid var(--cream-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>Intake Notes</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  {notes.length > 0 && !isRecording && (
+                    <button onClick={clearNotes} title="Clear notes" style={{ fontSize: 11, color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', padding: '3px 6px', borderRadius: 5 }}>
+                      Clear
+                    </button>
+                  )}
+                  {/* Mode tabs */}
+                  <div style={{ display: 'flex', background: 'var(--cream-mid)', borderRadius: 7, padding: 2, gap: 1 }}>
+                    <button onClick={() => { if (isRecording) toggleRecording(); setAudioMode(false); }}
+                      style={{ padding: '4px 10px', fontSize: 11.5, fontWeight: 500, borderRadius: 5, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        background: !audioMode ? 'white' : 'transparent',
+                        color: !audioMode ? 'var(--text-primary)' : 'var(--text-muted)',
+                        boxShadow: !audioMode ? '0 1px 3px oklch(0% 0 0 / 10%)' : 'none',
+                        transition: 'all 0.15s' }}>
+                      Type
+                    </button>
+                    <button onClick={() => setAudioMode(true)}
+                      style={{ padding: '4px 10px', fontSize: 11.5, fontWeight: 500, borderRadius: 5, border: 'none', cursor: 'pointer', fontFamily: 'var(--font-body)',
+                        background: audioMode ? 'white' : 'transparent',
+                        color: audioMode ? 'var(--text-primary)' : 'var(--text-muted)',
+                        boxShadow: audioMode ? '0 1px 3px oklch(0% 0 0 / 10%)' : 'none',
+                        transition: 'all 0.15s', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><rect x="4" y="1" width="4" height="7" rx="2" fill={audioMode ? 'var(--rose)' : 'var(--text-muted)'}/><path d="M2 6.5C2 8.7 3.8 10.5 6 10.5S10 8.7 10 6.5" stroke={audioMode ? 'var(--rose)' : 'var(--text-muted)'} strokeWidth="1.2" strokeLinecap="round" fill="none"/><line x1="6" y1="10.5" x2="6" y2="12" stroke={audioMode ? 'var(--rose)' : 'var(--text-muted)'} strokeWidth="1.2" strokeLinecap="round"/></svg>
+                      Voice
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Text area / audio area */}
+              {!audioMode ? (
+                <textarea
+                  value={notes}
+                  onChange={e => { setNotes(e.target.value); committedRef.current = e.target.value; }}
+                  style={{
+                    flex: 1, resize: 'none', border: 'none', outline: 'none',
+                    padding: '16px 20px', fontFamily: 'var(--font-body)',
+                    fontSize: 12.5, lineHeight: 1.7, color: 'var(--text-secondary)',
+                    background: 'white',
+                  }}
+                  placeholder="Paste visit notes, discharge documents, family emails…"
+                />
+              ) : (
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                  {/* Transcript view */}
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px', fontFamily: 'var(--font-body)', fontSize: 12.5, lineHeight: 1.7, color: 'var(--text-secondary)', background: 'white' }}>
+                    {notes ? (
+                      <span>{notes}</span>
+                    ) : (
+                      !isRecording && <span style={{ color: 'var(--text-muted)', fontStyle: 'italic' }}>Press the mic button to start dictating…</span>
+                    )}
+                    {interim && (
+                      <span style={{ color: 'oklch(68% 0.06 150)', fontStyle: 'italic' }}>{notes ? ' ' : ''}{interim}</span>
+                    )}
+                    {isRecording && !interim && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, marginLeft: 4 }}>
+                        {[0,1,2].map(i => (
+                          <span key={i} style={{ width: 3, height: 3, borderRadius: '50%', background: 'var(--rose)', display: 'inline-block', animation: `pulse 1s ease-in-out ${i*0.2}s infinite` }} />
+                        ))}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Mic button area */}
+                  <div style={{ padding: '14px 20px', borderTop: '1px solid var(--cream-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10 }}>
+                    {isRecording && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ display: 'flex', gap: 3, alignItems: 'flex-end', height: 20 }}>
+                          {[0,1,2,3,4].map(i => (
+                            <div key={i} style={{
+                              width: 3, borderRadius: 2, background: 'var(--rose)',
+                              animation: `audioBar${i} 0.8s ease-in-out ${i*0.12}s infinite alternate`,
+                              height: `${8 + Math.sin(i * 1.2) * 6}px`,
+                            }}/>
+                          ))}
+                        </div>
+                        <span style={{ fontSize: 12, color: 'var(--rose)', fontWeight: 600 }}>Recording…</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={toggleRecording}
+                      style={{
+                        width: 56, height: 56, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                        background: isRecording ? 'var(--rose)' : 'var(--sage)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: isRecording ? '0 0 0 6px oklch(96% 0.04 15), 0 4px 16px oklch(62% 0.12 15 / 35%)' : '0 4px 16px oklch(58% 0.1 150 / 35%)',
+                        transition: 'all 0.2s',
+                        animation: isRecording ? 'micPulse 2s ease-in-out infinite' : 'none',
+                      }}>
+                      {isRecording ? (
+                        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="4" y="4" width="10" height="10" rx="2" fill="white"/></svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="7" y="2" width="6" height="10" rx="3" fill="white"/><path d="M4 10C4 13.3 6.7 16 10 16s6-2.7 6-6" stroke="white" strokeWidth="1.8" strokeLinecap="round" fill="none"/><line x1="10" y1="16" x2="10" y2="19" stroke="white" strokeWidth="1.8" strokeLinecap="round"/></svg>
+                      )}
+                    </button>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', textAlign: 'center' }}>
+                      {isRecording ? 'Tap to stop' : 'Tap to dictate'}
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--cream-border)' }}>
+                {!hasPlan ? (
+                  <button
+                    className="gen-btn"
+                    onClick={generate}
+                    disabled={isGenerating}
+                    style={{
+                      width: '100%', padding: '13px 0', borderRadius: 10,
+                      background: isGenerating ? 'oklch(55% 0.08 150)' : 'var(--sage)',
+                      color: 'white', border: 'none', cursor: isGenerating ? 'default' : 'pointer',
+                      fontSize: 14, fontWeight: 600, fontFamily: 'var(--font-body)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                      transition: 'all 0.2s', boxShadow: '0 2px 12px oklch(58% 0.1 150 / 30%)',
+                    }}
+                  >
+                    {isGenerating ? (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 16 16" style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }}>
+                          <circle cx="8" cy="8" r="6" stroke="white" strokeWidth="2" fill="none" strokeDasharray="28" strokeDashoffset="10" strokeLinecap="round"/>
+                        </svg>
+                        <span style={{ fontSize: 12, opacity: 0.9 }}>{progressLabel}</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1L9.5 5.5L14 7L9.5 9L7.5 14L5.5 9L1 7L5.5 5.5L7.5 1Z" fill="white"/></svg>
+                        Generate with Caret
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 12, color: 'var(--sage)', fontWeight: 600, marginBottom: 4 }}>✓ Plan generated</div>
+                    <div style={{ fontSize: 11.5, color: 'var(--text-muted)' }}>All outputs require your review before sharing</div>
+                  </div>
+                )}
+
+                {isGenerating && (
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ height: 4, background: 'var(--cream-mid)', borderRadius: 2, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: 'var(--sage)', borderRadius: 2, width: `${progress}%`, transition: 'width 0.35s ease' }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right: Output */}
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--cream)' }}>
+              {!hasPlan && !isGenerating ? (
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 16, padding: 40 }}>
+                  <div style={{ width: 56, height: 56, borderRadius: 16, background: 'var(--cream-mid)', border: '1px solid var(--cream-border)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <svg width="26" height="26" viewBox="0 0 26 26" fill="none"><path d="M13 3L16.5 10.5L24 13L16.5 15.5L13 23L9.5 15.5L2 13L9.5 10.5L13 3Z" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinejoin="round"/></svg>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, fontFamily: 'var(--font-display)', color: 'var(--text-primary)', marginBottom: 6 }}>Ready to generate</div>
+                    <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6, maxWidth: 300 }}>Type or <strong>dictate</strong> intake notes on the left, then hit <strong>Generate with Caret</strong> to produce a structured case summary, care plan, and task list.</div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ padding: '0 28px', background: 'white', borderBottom: '1px solid var(--cream-border)', flexShrink: 0 }}>
+                    <TabBar tab={tab} setTab={setTab} hasPlan={hasPlan} />
+                  </div>
+                  <div style={{ flex: 1, overflowY: 'auto', padding: '24px 28px' }}>
+                    {tab === 'summary' && (
+                      <div style={{ animation: 'fadeIn 0.4s ease' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--text-primary)' }}>Case Summary</h2>
+                          <span style={{ fontSize: 11, background: 'var(--sage-light)', color: 'var(--sage)', border: '1px solid var(--sage-mid)', borderRadius: 5, padding: '2px 8px', fontWeight: 600 }}>AI Draft · Review required</span>
+                        </div>
+                        <SummaryPanel animating={hasPlan || isGenerating} speed={animSpeed} />
+                      </div>
+                    )}
+                    {tab === 'careplan' && (
+                      <div style={{ animation: 'fadeIn 0.4s ease' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--text-primary)' }}>Care Plan</h2>
+                          <span style={{ fontSize: 11, background: 'var(--sage-light)', color: 'var(--sage)', border: '1px solid var(--sage-mid)', borderRadius: 5, padding: '2px 8px', fontWeight: 600 }}>AI Draft · Click source to verify</span>
+                        </div>
+                        <CarePlanPanel animating={hasPlan || isGenerating} speed={animSpeed} />
+                      </div>
+                    )}
+                    {tab === 'tasks' && (
+                      <div style={{ animation: 'fadeIn 0.4s ease' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 20, fontWeight: 400, color: 'var(--text-primary)' }}>Follow-up Tasks</h2>
+                          <span style={{ fontSize: 11, background: 'var(--sage-light)', color: 'var(--sage)', border: '1px solid var(--sage-mid)', borderRadius: 5, padding: '2px 8px', fontWeight: 600 }}>Extracted by AI</span>
+                        </div>
+                        <TasksPanel animating={hasPlan || isGenerating} speed={animSpeed} tasks={tasks} setTasks={setTasks} />
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Tweaks Panel */}
+      {tweaksVisible && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 999,
+          background: 'white', border: '1px solid var(--cream-border)',
+          borderRadius: 12, padding: '18px 20px', width: 240,
+          boxShadow: '0 8px 40px oklch(0% 0 0 / 12%)',
+          fontFamily: 'var(--font-body)',
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', marginBottom: 16 }}>Tweaks</div>
+          
+          <TweakGroup label="Color Theme">
+            {['warm', 'cool', 'stone'].map(t => (
+              <button key={t} onClick={() => { setTweaks(p => ({...p, theme: t})); window.parent.postMessage({type:'__edit_mode_set_keys', edits:{theme:t}}, '*'); }}
+                style={{ padding: '5px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  background: tweaks.theme === t ? 'var(--text-primary)' : 'var(--cream-mid)',
+                  color: tweaks.theme === t ? 'white' : 'var(--text-secondary)',
+                  border: '1px solid var(--cream-border)', fontWeight: tweaks.theme === t ? 600 : 400 }}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+          </TweakGroup>
+
+          <TweakGroup label="Animation Speed">
+            {['slow', 'normal', 'fast'].map(s => (
+              <button key={s} onClick={() => { setTweaks(p => ({...p, animationSpeed: s})); window.parent.postMessage({type:'__edit_mode_set_keys', edits:{animationSpeed:s}}, '*'); }}
+                style={{ padding: '5px 12px', fontSize: 12, borderRadius: 6, cursor: 'pointer', fontFamily: 'var(--font-body)',
+                  background: tweaks.animationSpeed === s ? 'var(--text-primary)' : 'var(--cream-mid)',
+                  color: tweaks.animationSpeed === s ? 'white' : 'var(--text-secondary)',
+                  border: '1px solid var(--cream-border)', fontWeight: tweaks.animationSpeed === s ? 600 : 400 }}>
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </TweakGroup>
+
+          <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--cream-border)', fontSize: 11.5, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            Tip: Hit <strong>Reset demo</strong> after changing speed to replay the generation animation.
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TweakGroup({ label, children }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 6, fontWeight: 600 }}>{label}</div>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>{children}</div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+    <rect width="200" height="140" fill="oklch(22% 0.025 60)"/>
+    <rect x="0" y="0" width="50" height="140" fill="oklch(18% 0.02 60)"/>
+    <rect x="60" y="20" width="120" height="100" rx="8" fill="white" opacity="0.08"/>
+    <text x="25" y="75" font-family="serif" font-size="18" fill="oklch(58% 0.1 150)" text-anchor="middle">C</text>
+  </svg>
+</template>
+</body>
+</html>
