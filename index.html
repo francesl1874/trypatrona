@@ -480,8 +480,8 @@
       <h1>Geriatric care, <em>without the busywork.</em></h1>
       <p>Patrona turns calls, visits, and messages into case notes, tasks, and family updates — automatically. We're building it with working GCMs.</p>
 
-      <form class="email-form" id="signup-form">
-        <input class="email-input" type="email" placeholder="you@yourpractice.com" required />
+      <form class="email-form" id="signup-form" action="https://formspree.io/f/mwvayrew" method="POST">
+        <input class="email-input" type="email" name="email" placeholder="you@yourpractice.com" required />
         <button type="submit" class="btn-primary">Request a conversation</button>
       </form>
       <div class="form-hint">A 30-minute call about how you work today — no demo, no pitch.</div>
@@ -704,12 +704,26 @@
   form.addEventListener('submit', (e) => {
     e.preventDefault();
     const input = form.querySelector('.email-input');
+    const btn = form.querySelector('.btn-primary');
     const email = input.value.trim();
     if (!email) return;
-    const success = document.createElement('div');
-    success.className = 'form-success';
-    success.textContent = `Thanks — we'll be in touch within a few days at ${email}.`;
-    form.replaceWith(success);
+    btn.textContent = 'Sending…';
+    btn.disabled = true;
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    }).then(res => {
+      const success = document.createElement('div');
+      success.className = 'form-success';
+      success.textContent = res.ok
+        ? `Thanks — we'll be in touch within a few days at ${email}.`
+        : 'Something went wrong — please try again.';
+      form.replaceWith(success);
+    }).catch(() => {
+      btn.textContent = 'Request a conversation';
+      btn.disabled = false;
+    });
   });
 </script>
 
