@@ -153,7 +153,9 @@ const App = () => {
 
   const breadcrumbs = tweaks.familyMode
     ? ['Family', client.name.split(' ')[0], viewLabel(view, true)]
-    : ['Sarah Marshall', client.name, viewLabel(view, false)];
+    : view === 'today'
+      ? ['Sarah Marshall', viewLabel(view, false)]
+      : ['Sarah Marshall', client.name, viewLabel(view, false)];
 
   if (showSplash) {
     return (
