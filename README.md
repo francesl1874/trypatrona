@@ -1,1 +1,1 @@
-# trypatrona
+# getpatrona
