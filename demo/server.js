@@ -33,6 +33,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // Debug ping — confirms any method reaches the server
+  if (req.url === '/ping') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ ok: true, method: req.method, url: req.url }));
+    return;
+  }
+
   // API proxy endpoint
   if (req.method === 'POST' && req.url === '/api/generate') {
     if (!API_KEY) {
