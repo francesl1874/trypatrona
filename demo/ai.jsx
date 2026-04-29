@@ -215,8 +215,9 @@ function buildUserMessage(flow, payload) {
 window.patronaGenerate = async function(flow, payload) {
   const config = window.PATRONA_CONFIG;
 
-  // Per-flow override (realFlows) bypasses the global mock; otherwise fall back to useMockData.
-  const useMock = !config.realFlows?.includes(flow) && config.useMockData;
+  // realFlows only apply on localhost — production has no API proxy.
+  const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const useMock = !(isLocal && config.realFlows?.includes(flow)) && config.useMockData;
   if (useMock) {
     return null;
   }
