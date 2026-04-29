@@ -48,7 +48,7 @@ Three flows use `window.patronaGenerate(flow, payload)` from `ai.jsx`:
 - **`call-capture`** — Call transcript → `{ summary, keyFacts[], tasks[] }`. Used in `capture.jsx`. `GeneratedNotes` component renders summary/keyFacts from a data prop (not hardcoded).
 - **`intake`** — Intake notes → `{ summary, carePlan[], tasks[] }`. Used in `intake.jsx`. `IntakeSummary` and `IntakePlan` accept data props with fallback to `window.INTAKE_GENERATED`.
 
-All flows use Claude's `tool_use` for structured JSON output. When `PATRONA_CONFIG.useMockData` is `true` (default), `patronaGenerate` returns `null` and callers use hardcoded mock data from `data.jsx`. When `false`, it POSTs to `/api/generate` which `server.js` proxies to the Anthropic API.
+All flows use Claude's `tool_use` for structured JSON output. When `PATRONA_CONFIG.useMockData` is `true` (default), `patronaGenerate` returns `null` and callers use hardcoded mock data from `data.jsx`. When `false`, it POSTs to `/api/generate` which `server.js` proxies to the Anthropic API. `PATRONA_CONFIG.realFlows` is a per-flow allowlist that overrides the global mock — flows listed there always call real Claude (currently `['visit-note']`).
 
 ## Key Concepts
 

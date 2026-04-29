@@ -2,7 +2,8 @@
 
 window.PATRONA_CONFIG = {
   apiUrl: '/api/generate',
-  useMockData: true, // flip to false when proxy is running with API key
+  useMockData: true,           // global default — flip to false to hit real Claude for every flow
+  realFlows: ['visit-note'],   // flows that bypass useMockData and always call real Claude (when proxy has API key)
 };
 
 // ============ SYSTEM PROMPTS ============
@@ -214,8 +215,9 @@ function buildUserMessage(flow, payload) {
 window.patronaGenerate = async function(flow, payload) {
   const config = window.PATRONA_CONFIG;
 
-  // Mock mode — return null to signal caller should use mock data
-  if (config.useMockData) {
+  // Per-flow override (realFlows) bypasses the global mock; otherwise fall back to useMockData.
+  const useMock = !config.realFlows?.includes(flow) && config.useMockData;
+  if (useMock) {
     return null;
   }
 
@@ -228,7 +230,7 @@ window.patronaGenerate = async function(flow, payload) {
   }
 
   const requestBody = {
-    model: 'claude-sonnet-4-20250514',
+    model: 'claude-sonnet-4-6',
     max_tokens: 2048,
     system: systemPrompt,
     tools: [tool],
