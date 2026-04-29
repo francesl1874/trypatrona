@@ -5,7 +5,7 @@ const _isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
 window.PATRONA_CONFIG = {
   apiUrl: _isLocal
     ? '/api/generate'
-    : 'REPLACE_WITH_RAILWAY_URL/api/generate',
+    : 'https://patrona-production.up.railway.app/api/generate',
   useMockData: true,
   realFlows: ['visit-note'],   // flows eligible for real Claude
   liveClients: ['harold'],     // clients that get real Claude in production (others stay on mock)
