@@ -244,8 +244,8 @@ window.patronaGenerate = async function(flow, payload) {
   }
 
   const requestBody = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 400,
     system: systemPrompt,
     tools: [tool],
     tool_choice: { type: 'tool', name: tool.name },
